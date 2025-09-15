@@ -1,167 +1,307 @@
-# Framework Web en Java para Servicios REST con Anotaciones, Reflexión y Multihilo
+Framework Web en Java para Servicios REST con Anotaciones, Reflexión y Multihilo
+Este proyecto implementa un framework web completo en Java que evoluciona desde un servidor web básico hacia una plataforma robusta para el desarrollo de aplicaciones web con servicios REST backend. El framework ahora incluye sistema de anotaciones, carga automática de componentes mediante reflexión, arquitectura MVC moderna, y procesamiento multihilo concurrente.
 
-Este proyecto implementa un **framework web completo en Java** que evoluciona desde un servidor web básico hacia una plataforma robusta para el desarrollo de aplicaciones web con servicios REST backend. El framework ahora incluye **sistema de anotaciones**, **carga automática de componentes mediante reflexión**, **arquitectura MVC moderna**, y **procesamiento multihilo concurrente**.
+Nuevas Características Agregadas
+Sistema de Procesamiento Multihilo Mejorado
+ClientHandler dedicado: Clase especializada que implementa Runnable para manejar cada cliente en hilos separados
 
-## Nuevas Características Agregadas
+Timeout configurable: Timeout de 30 segundos para evitar conexiones colgadas
 
-### **Sistema de Anotaciones Personalizado**
+Manejo robusto de errores: Captura y registro detallado de excepciones
 
-- **`@RestController`**: Marca clases como controladores REST
-- **`@GetMapping`**: Define endpoints GET con rutas personalizadas
-- **`@RequestParam`**: Extrae parámetros de consulta automáticamente
+Logging mejorado: Sistema de logging con información de hilos, clientes y tiempos de procesamiento
 
-### **Carga Automática de Componentes**
+Soporte para métodos HTTP adicionales: Implementación completa de HEAD y OPTIONS
 
-- **Reflection-based loading**: Carga automática de controladores usando la librería Reflections
-- **Auto-registro de endpoints**: Los métodos anotados se registran automáticamente
-- **Inyección de parámetros**: Procesamiento automático de query parameters
+Mejoras en el Manejo de Clientes
+Identificación única de clientes: Generación de IDs únicos para tracking
 
-### **Arquitectura MVC Moderna**
+Estadísticas de procesamiento: Medición de tiempos de procesamiento por cliente
 
-- **Controladores separados**: `GreetingController` y `MathController`
-- **Separación de responsabilidades**: Lógica de negocio en controladores dedicados
-- **Métodos estáticos**: Fácil testing y acceso directo
+Cierre seguro de conexiones: Manejo adecuado de recursos y cierre de sockets
 
-### **Procesamiento Multihilo Concurrente**
+Respuestas de error específicas: Respuestas HTTP apropiadas para diferentes errores
 
-- **Thread Pool**: Pool de hilos para manejo concurrente de clientes
-- **HandleClient**: Clase dedicada para procesamiento de cada cliente
-- **Arquitectura escalable**: Soporte para múltiples clientes simultáneos
-- **Manejo de recursos**: Gestión automática de conexiones y memoria
+Optimizaciones de Rendimiento
+Pool de hilos configurable: Hasta 50 hilos concurrentes (configurable)
 
-### **Testing Avanzado**
+Manejo eficiente de memoria: Uso de buffers optimizados para lectura/escritura
 
-- **JUnit 5**: Framework de testing moderno
-- **Tests de reflexión**: Validación de carga automática de componentes
-- **Tests de integración**: Verificación completa del sistema de anotaciones
-- **Tests de concurrencia**: Validación del procesamiento multihilo
+Procesamiento no bloqueante: Timeouts en sockets para evitar bloqueos
 
-### **Build System Mejorado**
+Gestión de recursos: Cierre automático de streams y sockets
 
-- **Maven Shade Plugin**: Generación de JARs ejecutables
-- **Dependencias optimizadas**: Reflections para scanning de clases
-- **Configuración JUnit 5**: Testing framework actualizado
+Pruebas y Validación
+Suite Completa de Pruebas Implementadas
+El framework incluye una suite completa de pruebas que validan todas las funcionalidades:
 
-## Características Principales
+Pruebas Unitarias (HttpServerTest)
+java
+@Test
+void testLoadInitialData() {
+    var users = HttpServer.getUsers();
+    assertEquals(3, users.size());
+    assertTrue(users.containsValue("Andres"));
+    assertTrue(users.containsValue("Maria"));
+    assertTrue(users.containsValue("Carlos"));
+}
 
-### **Framework de Servicios REST con Anotaciones**
+@Test
+void testAddUser() {
+    int initial = HttpServer.getUsers().size();
+    HttpServer.addUser("TestUser");
+    assertEquals(initial + 1, HttpServer.getUsers().size());
+}
 
-- **Anotaciones personalizadas**: Sistema completo de anotaciones tipo Spring
-- **Reflection-based routing**: Enrutamiento automático basado en anotaciones
-- **Auto-discovery**: Descubrimiento automático de controladores
-- **Parameter injection**: Inyección automática de parámetros de consulta
+@Test
+void testGetHelloWithParams() throws Exception {
+    String resp = doGet("/api/hello?name=Juan");
+    assertTrue(resp.contains("Hello Juan!"));
+}
 
-### **Funcionalidades Implementadas**
+@Test
+void testStaticFileIndex() throws Exception {
+    String resp = doGet("/");
+    assertTrue(resp.contains("Test Index"));
+}
 
-1. **Sistema de Anotaciones**
+@Test
+void testPathTraversalBlocked() throws Exception {
+    String resp = doGet("/../../../etc/passwd");
+    assertTrue(resp.contains("404") || resp.contains("Forbidden"));
+}
+Pruebas de Controladores con Anotaciones (SimpleControllerTest)
+java
+@Test
+@DisplayName("Test endpoint /greeting")
+void testHelloEndpoint() throws Exception {
+    URI testUri = new URI("/greeting");
+    byte[] response = HttpServer.handleGetRequest(testUri);
+    
+    String responseStr = new String(response);
+    assertTrue(responseStr.contains("200 OK"));
+    assertTrue(responseStr.contains("Hola Mundo!"));
+}
 
-   - `@RestController` para marcar controladores
-   - `@GetMapping` para definir rutas GET
-   - `@RequestParam` para extraer parámetros
+@Test
+@DisplayName("Test endpoint /hello con parámetro")
+void testRequestParam() throws Exception {
+    URI testUri = new URI("/hello?name=Jorge");
+    byte[] response = HttpServer.handleGetRequest(testUri);
+    
+    String responseStr = new String(response);
+    assertTrue(responseStr.contains("200 OK"));
+    assertTrue(responseStr.contains("Hola, Jorge!"));
+}
 
-2. **Controladores con Anotaciones**
+@Test
+@DisplayName("Test MathController - /add suma")
+void testMultipleControllers() throws Exception {
+    URI testUri = new URI("/add?a=3&b=7");
+    byte[] response = HttpServer.handleGetRequest(testUri);
+    
+    String responseStr = new String(response);
+    assertTrue(responseStr.contains("200 OK"));
+    assertTrue(responseStr.contains("Result: 10"));
+}
 
-   - `GreetingController`: Endpoints de saludo
-   - `MathController`: Operaciones matemáticas
+@Test
+@DisplayName("Test MathController - números inválidos")
+void testMathInvalidNumbers() throws Exception {
+    URI testUri = new URI("/add?a=abc&b=5");
+    byte[] response = HttpServer.handleGetRequest(testUri);
+    
+    String responseStr = new String(response);
+    assertTrue(responseStr.contains("200 OK"));
+    assertTrue(responseStr.contains("Error: Invalid numbers"));
+}
+Pruebas de Concurrencia (MultithreadedServerTest)
+java
+@Test
+void testConcurrentGetRequests() throws InterruptedException {
+    int clientCount = 20;
+    ExecutorService executor = Executors.newFixedThreadPool(clientCount);
+    AtomicInteger successCount = new AtomicInteger(0);
+    CountDownLatch latch = new CountDownLatch(clientCount);
 
-3. **Carga Automática de Componentes**
+    for (int i = 0; i < clientCount; i++) {
+        final int id = i;
+        executor.submit(() -> {
+            try {
+                String msg = "msg" + id;
+                String response = sendHttpRequest("GET", "/api/echo?msg=" + msg, "");
+                if (response.contains("{\"echo\":\"" + msg + "\"}")) {
+                    successCount.incrementAndGet();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                latch.countDown();
+            }
+        });
+    }
 
-   - Scanning automático del classpath
-   - Registro automático de endpoints
-   - Inicialización automática del framework
+    latch.await(5, TimeUnit.SECONDS);
+    executor.shutdownNow();
 
-4. **Testing Completo**
-   - Tests de reflexión y anotaciones
-   - Tests de integración del sistema completo
-   - Validación de carga automática
+    assertEquals(clientCount, successCount.get(), 
+        "Todos los clientes deberían recibir la respuesta correcta");
+}
+Cobertura de Pruebas
+Pruebas unitarias: Validación de componentes individuales
 
----
+Pruebas de integración: Verificación de la interacción entre componentes
 
-## 📋 Requisitos Previos
+Pruebas de anotaciones: Validación del sistema de reflexión y anotaciones
 
-- **Java 21** [Descargar Java](https://www.oracle.com/java/technologies/javase/jdk21-archive-downloads.html)
-- **Apache Maven 3.8+** [Instalar Maven](https://maven.apache.org/install.html)
-- **Git** [Instalar Git](https://git-scm.com/downloads)
+Pruebas de concurrencia: Evaluación del rendimiento bajo carga
 
----
+Pruebas de seguridad: Validación contra path traversal attacks
 
-## 🛠️ Instalación y Ejecución
+Pruebas de errores: Manejo de casos de error y excepciones
 
-### Pasos para ejecutar el proyecto:
-
-1. **Clonar el repositorio:**
-
-   ```bash
-   git clone https://github.com/JAGBytes/arep-taller3.git
-   cd arep-taller3
-   ```
-
-2. **Compilar el proyecto:**
-
-   ```bash
-   mvn clean compile
-   ```
-
-3. **Ejecutar el servidor:**
-
-   ```bash
-   java -cp target/classes edu.escuelaing.arem.ASE.app.App
-   ```
-
-4. **Acceder a la aplicación:**
-   ```
-   http://localhost:35000
-   ```
-
-### Alternativas de ejecución:
-
-**Usando Maven Exec Plugin:**
-
-```bash
-mvn exec:java -Dexec.mainClass="edu.escuelaing.arem.ASE.app.App"
-```
-
-**Ejecutar tests:**
-
-```bash
+Ejecución de Pruebas
+bash
+# Ejecutar todas las pruebas
 mvn test
-```
 
----
+# Ejecutar pruebas específicas
+mvn test -Dtest=HttpServerTest
+mvn test -Dtest=SimpleControllerTest
+mvn test -Dtest=MultithreadedServerTest
 
-## Arquitectura del Framework
+# Ejecutar con logging detallado
+mvn test -Dhttp.debug=true
+Resultados de las Pruebas
+Las pruebas demuestran que el framework:
 
-### **Componentes Principales:**
+Es robusto: Maneja correctamente errores y entradas inválidas
 
-#### **Procesamiento Multihilo**
+Escala bien: Soporta múltiples clientes concurrentes sin degradación del servicio
 
-El framework implementa un **sistema de procesamiento multihilo** que permite manejar múltiples clientes de forma concurrente:
+Es seguro: Previene accesos no autorizados a archivos del sistema
 
-```java
-// Pool de hilos para manejo concurrente
-private static ExecutorService threadPool = Executors.newFixedThreadPool(10);
+Mantiene la consistencia: Las estructuras de datos thread-safe garantizan la integridad de los datos bajo concurrencia
 
-// Cada cliente se maneja en un hilo separado
-HandleClient clientHandler = new HandleClient(
-    clientSocket,
-    getServices,
-    postServices,
-    staticFilesDirectory
-);
-threadPool.submit(clientHandler);
-```
+Características Principales
+Framework de Servicios REST con Anotaciones
+Anotaciones personalizadas: Sistema completo de anotaciones tipo Spring
 
-**Características del sistema multihilo:**
+Reflection-based routing: Enrutamiento automático basado en anotaciones
 
-- **Thread Pool**: Pool de 10 hilos para procesamiento concurrente
-- **HandleClient**: Clase `Runnable` que maneja cada cliente individualmente
-- **Aislamiento**: Cada cliente se procesa en su propio hilo
-- **Escalabilidad**: Soporte para múltiples conexiones simultáneas
-- **Gestión de recursos**: Cierre automático de conexiones y limpieza de memoria
+Auto-discovery: Descubrimiento automático de controladores
 
-#### **Sistema de Anotaciones**
+Parameter injection: Inyección automática de parámetros de consulta
 
-```java
+Funcionalidades Implementadas
+Sistema de Anotaciones
+
+@RestController para marcar controladores
+
+@GetMapping para definir rutas GET
+
+@RequestParam para extraer parámetros
+
+Controladores con Anotaciones
+
+GreetingController: Endpoints de saludo
+
+MathController: Operaciones matemáticas
+
+Carga Automática de Componentes
+
+Scanning automático del classpath
+
+Registro automático de endpoints
+
+Inicialización automática del framework
+
+Sistema Multihilo Avanzado
+
+ClientHandler: Manejo especializado de clientes en hilos separados
+
+Thread Pool: Pool configurable de hasta 50 hilos
+
+Timeout management: Timeouts de 30 segundos para conexiones
+
+Error handling: Manejo robusto de excepciones y errores
+
+Resource management: Gestión eficiente de recursos de red
+
+Testing Completo
+
+Tests de reflexión y anotaciones
+
+Tests de integración del sistema completo
+
+Tests de concurrencia y rendimiento
+
+Validación de carga automática
+
+📋 Requisitos Previos
+Java 21 Descargar Java
+
+Apache Maven 3.8+ Instalar Maven
+
+Git Instalar Git
+
+🛠️ Instalación y Ejecución
+Pasos para ejecutar el proyecto:
+Clonar el repositorio:
+
+bash
+git clone https://github.com/JAGBytes/arep-taller3.git
+cd arep-taller3
+Compilar el proyecto:
+
+bash
+mvn clean compile
+Ejecutar el servidor:
+
+bash
+java -cp target/classes edu.escuelaing.arem.ASE.app.App
+Acceder a la aplicación:
+
+text
+http://localhost:35000
+Alternativas de ejecución:
+Usando Maven Exec Plugin:
+
+bash
+mvn exec:java -Dexec.mainClass="edu.escuelaing.arem.ASE.app.App"
+Ejecutar tests:
+
+bash
+mvn test
+Ejecutar con logging debug:
+
+bash
+java -Dhttp.debug=true -cp target/classes edu.escuelaing.arem.ASE.app.App
+Arquitectura del Framework
+Componentes Principales:
+Procesamiento Multihilo Mejorado
+El framework implementa un sistema de procesamiento multihilo mejorado con la clase ClientHandler que maneja cada cliente de forma concurrente:
+
+java
+// Pool de hilos para manejo concurrente (hasta 50 hilos)
+private static ExecutorService threadPool = Executors.newFixedThreadPool(50);
+
+// Cada cliente se maneja en un hilo separado con ClientHandler
+threadPool.submit(new ClientHandler(clientSocket));
+Características del sistema multihilo mejorado:
+
+ClientHandler dedicado: Clase especializada que implementa Runnable
+
+Timeout management: 30 segundos de timeout para evitar conexiones colgadas
+
+Logging detallado: Información de hilos, clientes y tiempos de procesamiento
+
+Manejo robusto de errores: Captura y registro detallado de excepciones
+
+Soporte para métodos HTTP: GET, POST, HEAD, OPTIONS
+
+Sistema de Anotaciones
+java
 @RestController
 public class GreetingController {
 
@@ -175,52 +315,53 @@ public class GreetingController {
         return "Hola, " + name + "!";
     }
 }
-```
+HttpServer con Reflexión
+Auto-discovery: Escaneo automático de controladores
 
-#### **HttpServer con Reflexión**
+Reflection-based routing: Enrutamiento basado en anotaciones
 
-- **Auto-discovery**: Escaneo automático de controladores
-- **Reflection-based routing**: Enrutamiento basado en anotaciones
-- **Parameter injection**: Inyección automática de parámetros
-- **Error handling**: Manejo robusto de errores de reflexión
+Parameter injection: Inyección automática de parámetros
 
-#### **Métodos del Framework**
+Error handling: Manejo robusto de errores de reflexión
 
-1. **`loadComponents(String[] args)`**
+Métodos del Framework
+loadComponents(String[] args)
 
-   - Carga automática de controladores usando Reflections
-   - Registro automático de endpoints anotados
-   - Procesamiento de parámetros con `@RequestParam`
+Carga automática de controladores usando Reflections
 
-2. **`get(String path, Function<Request, Response> handler)`**
+Registro automático de endpoints anotados
 
-   - Define servicios REST GET con funciones lambda (legacy)
-   - Compatible con el sistema anterior
+Procesamiento de parámetros con @RequestParam
 
-3. **`post(String path, Function<Request, Response> handler)`**
+get(String path, Function<Request, Response> handler)
 
-   - Define servicios REST POST (legacy)
-   - Procesamiento de cuerpos JSON
+Define servicios REST GET con funciones lambda (legacy)
 
-4. **`staticfiles(String directory)`**
-   - Configura directorio de archivos estáticos
-   - Búsqueda en `target/classes + directory`
+Compatible con el sistema anterior
 
-#### **Clases de Soporte**
+post(String path, Function<Request, Response> handler)
 
-- **Request**: Acceso a parámetros, headers, body JSON
-- **Response**: Constructor de respuestas HTTP con Builder Pattern
-- **Annotations**: Sistema completo de anotaciones personalizadas
+Define servicios REST POST (legacy)
 
----
+Procesamiento de cuerpos JSON
 
-## Ejemplos de Uso
+staticfiles(String directory)
 
-### **Controladores con Anotaciones:**
+Configura directorio de archivos estáticos
 
-#### **GreetingController.java:**
+Búsqueda en target/classes + directory
 
-```java
+Clases de Soporte
+Request: Acceso a parámetros, headers, body JSON
+
+Response: Constructor de respuestas HTTP con Builder Pattern
+
+Annotations: Sistema completo de anotaciones personalizadas
+
+Ejemplos de Uso
+Controladores con Anotaciones:
+GreetingController.java:
+java
 @RestController
 public class GreetingController {
 
@@ -234,11 +375,8 @@ public class GreetingController {
         return "Hola, " + name + "!";
     }
 }
-```
-
-#### **MathController.java:**
-
-```java
+MathController.java:
+java
 @RestController
 public class MathController {
 
@@ -253,11 +391,8 @@ public class MathController {
         }
     }
 }
-```
-
-### **Aplicación Principal (App.java):**
-
-```java
+Aplicación Principal (App.java):
+java
 public class App {
     public static void main(String[] args) throws Exception {
         // Configurar archivos estáticos
@@ -285,95 +420,33 @@ public class App {
         HttpServer.startServer(args);
     }
 }
-```
+🌐 Endpoints Disponibles
+Servicios con Anotaciones:
+GET /greeting → Saludo básico
 
----
+GET /hello?name=X → Saludo personalizado
 
-## Pruebas y Validación
+GET /add?a=X&b=Y → Suma de dos números
 
-### **Ejecutar pruebas:**
+Servicios Legacy (compatibilidad):
+GET /pi → Constante matemática PI
 
-```bash
-mvn test
-```
+GET /e → Número de Euler
 
-### **Pruebas Implementadas:**
+POST /app/hello → Registro de usuarios
 
-#### **Tests de Anotaciones y Reflexión (ControllerLoadingTest.java)**
+Archivos Estáticos
+GET / → index.html
 
-```java
-@Test
-@DisplayName("Test endpoint /greeting")
-void testHelloEndpoint() throws Exception {
-    URI testUri = new URI("/greeting");
-    byte[] response = HttpServer.handleGetRequest(testUri);
+GET /styles.css → Archivos CSS
 
-    String responseStr = new String(response);
-    assertTrue(responseStr.contains("200 OK"));
-    assertTrue(responseStr.contains("Hola Mundo!"));
-}
+GET /scripts.js → Archivos JavaScript
 
-@Test
-@DisplayName("Test endpoint /hello con parámetro")
-void testRequestParam() throws Exception {
-    URI testUri = new URI("/hello?name=Jorge");
-    byte[] response = HttpServer.handleGetRequest(testUri);
+GET /servicio-web.jpg → Imagen del proyecto
 
-    String responseStr = new String(response);
-    assertTrue(responseStr.contains("200 OK"));
-    assertTrue(responseStr.contains("Hola, Jorge!"));
-}
-
-@Test
-@DisplayName("Test MathController - /add suma")
-void testMultipleControllers() throws Exception {
-    URI testUri = new URI("/add?a=3&b=7");
-    byte[] response = HttpServer.handleGetRequest(testUri);
-
-    String responseStr = new String(response);
-    assertTrue(responseStr.contains("200 OK"));
-    assertTrue(responseStr.contains("Result: 10"));
-}
-```
-
-### **Cobertura de Tests:**
-
-- Tests de endpoints con anotaciones
-- Tests de parámetros de consulta
-- Tests de controladores múltiples
-- Tests de manejo de errores
-- Tests de carga automática de componentes
-
----
-
-## 🌐 Endpoints Disponibles
-
-### **Servicios con Anotaciones:**
-
-- `GET /greeting` → Saludo básico
-- `GET /hello?name=X` → Saludo personalizado
-- `GET /add?a=X&b=Y` → Suma de dos números
-
-### **Servicios Legacy (compatibilidad):**
-
-- `GET /pi` → Constante matemática PI
-- `GET /e` → Número de Euler
-- `POST /app/hello` → Registro de usuarios
-
-#### **Archivos Estáticos**
-
-- `GET /` → `index.html`
-- `GET /styles.css` → Archivos CSS
-- `GET /scripts.js` → Archivos JavaScript
-- `GET /servicio-web.jpg` → Imagen del proyecto
-
----
-
-## Ejemplos de Peticiones
-
-### **Endpoints con Anotaciones:**
-
-```bash
+Ejemplos de Peticiones
+Endpoints con Anotaciones:
+bash
 # Saludo básico
 curl "http://localhost:35000/greeting"
 # Respuesta: Hola Mundo!
@@ -389,11 +462,8 @@ curl "http://localhost:35000/add?a=5&b=3"
 # Números inválidos
 curl "http://localhost:35000/add?a=abc&b=5"
 # Respuesta: Error: Invalid numbers
-```
-
-### **Servicios Legacy:**
-
-```bash
+Servicios Legacy:
+bash
 # Constante PI
 curl "http://localhost:35000/pi"
 # Respuesta: 3.141592653589793
@@ -418,33 +488,28 @@ curl "http://localhost:35000/greeting?name=Pedro"
 
 curl "http://localhost:35000/add?a=5&b=3"
 # Respuesta: 8
-```
-
-### **Pruebas de Concurrencia**
-
+Pruebas de Concurrencia
 El servidor multihilo puede manejar múltiples peticiones simultáneas. Puedes probar la concurrencia ejecutando múltiples peticiones en paralelo:
 
-```bash
+bash
 # Ejecutar múltiples peticiones simultáneas
 curl "http://localhost:35000/pi" &
 curl "http://localhost:35000/e" &
 curl "http://localhost:35000/app/hello?name=Usuario1" &
 curl "http://localhost:35000/greeting?name=Usuario2" &
 wait
-```
+Características observables:
 
-**Características observables:**
+Procesamiento concurrente: Cada petición se maneja en un hilo separado
 
-- **Procesamiento concurrente**: Cada petición se maneja en un hilo separado
-- **Logs de concurrencia**: El servidor muestra "Cliente conectado, manejado en hilo separado"
-- **Respuestas independientes**: Cada cliente recibe su respuesta sin interferencia
-- **Gestión de recursos**: Conexiones se cierran automáticamente después del procesamiento
+Logs de concurrencia: El servidor muestra "Cliente conectado, manejado en hilo separado"
 
----
+Respuestas independientes: Cada cliente recibe su respuesta sin interferencia
 
-## Estructura del Proyecto
+Gestión de recursos: Conexiones se cierran automáticamente después del procesamiento
 
-```
+Estructura del Proyecto
+text
 arep-taller3/
 │
 ├── src/main/
@@ -452,7 +517,7 @@ arep-taller3/
 │   │   ├── App.java                    # Aplicación principal
 │   │   ├── http/
 │   │   │   ├── HttpServer.java         # Servidor multihilo con reflexión
-│   │   │   ├── HandleClient.java       # Manejo de clientes en hilos separados
+│   │   │   ├── ClientHandler.java      # Manejo de clientes en hilos separados
 │   │   │   ├── Request.java            # Manejo de peticiones
 │   │   │   └── Response.java           # Constructor de respuestas
 │   │   ├── annotation/                 # Sistema de anotaciones
@@ -471,64 +536,74 @@ arep-taller3/
 │
 ├── src/test/java/edu/escuelaing/arem/ASE/app/
 │   ├── HttpServerTest.java             # Tests del servidor HTTP
-│   └── ControllerLoadingTest.java      #  Tests de anotaciones y reflexión
-
+│   ├── SimpleControllerTest.java       # Tests de anotaciones y reflexión
+│   └── MultithreadedServerTest.java    # Tests de concurrencia
+│
 ├── target/classes/                     # Archivos compilados
 ├── pom.xml                            # Configuración Maven con nuevas dependencias
 ├── README.md                          # Documentación actualizada
 └── .gitignore
-```
+Características Técnicas
+Sistema de Reflexión Implementado:
+Runtime annotation processing: Procesamiento de anotaciones en tiempo de ejecución
 
----
+Method invocation: Invocación dinámica de métodos
 
-## Características Técnicas
+Parameter extraction: Extracción automática de parámetros
 
-### **Sistema de Reflexión Implementado:**
+Protocolo HTTP Implementado:
+Headers completos (Content-Type, Content-Length)
 
-- **Runtime annotation processing**: Procesamiento de anotaciones en tiempo de ejecución
-- **Method invocation**: Invocación dinámica de métodos
-- **Parameter extraction**: Extracción automática de parámetros
+Status codes apropiados (200, 400, 404, 500)
 
-### **Protocolo HTTP Implementado:**
+Métodos GET, POST, HEAD, OPTIONS
 
-- Headers completos (Content-Type, Content-Length)
-- Status codes apropiados (200, 400, 404, 500)
-- Métodos GET y POST
-- JSON parsing y generación
+JSON parsing y generación
 
----
+Sistema Multihilo Avanzado:
+Pool de hilos configurable: Hasta 50 hilos concurrentes
 
-## Funcionalidades Destacadas
+ClientHandler especializado: Manejo dedicado por cliente
 
-### **1. Sistema de Anotaciones Personalizado**
+Timeout management: 30 segundos de timeout por conexión
 
-- Anotaciones tipo Spring Framework
-- Procesamiento en tiempo de ejecución
-- Inyección automática de parámetros
+Logging detallado: Información completa de procesamiento
 
-### **2. Carga Automática de Componentes**
+Manejo robusto de errores: Captura y registro de excepciones
 
-- Descubrimiento automático de controladores
-- Registro automático de endpoints
-- Inicialización sin configuración manual
+Funcionalidades Destacadas
+1. Sistema de Anotaciones Personalizado
+Anotaciones tipo Spring Framework
 
-### **3. Procesamiento Multihilo**
+Procesamiento en tiempo de ejecución
 
-- **Concurrencia**: Manejo simultáneo de múltiples clientes
-- **Escalabilidad**: Pool de hilos configurable (10 hilos por defecto)
-- **Aislamiento**: Cada cliente se procesa independientemente
-- **Rendimiento**: Mejor throughput y latencia reducida
-- **Gestión de recursos**: Cierre automático de conexiones
+Inyección automática de parámetros
 
-### **4. Testing Completo**
+2. Carga Automática de Componentes
+Descubrimiento automático de controladores
 
-- Tests de integración
-- Tests de reflexión
-- Tests de concurrencia
-- Validación de funcionalidades
+Registro automático de endpoints
 
----
+Inicialización sin configuración manual
 
-## Autor
+3. Procesamiento Multihilo Avanzado
+Concurrencia: Manejo simultáneo de múltiples clientes (hasta 50)
 
-**Jorge Andrés Gamboa Sierra**
+Escalabilidad: Pool de hilos configurable
+
+Aislamiento: Cada cliente se procesa independientemente
+
+Rendimiento: Mejor throughput y latencia reducida
+
+Gestión de recursos: Cierre automático de conexiones y manejo de timeouts
+
+4. Testing Completo
+Tests unitarios: Validación de componentes individuales
+
+Tests de integración: Verificación de interacción entre componentes
+
+Tests de anotaciones: Validación del sistema de reflexión
+
+Tests de concurrencia: Evaluación del rendimiento bajo carga
+
+Tests de seguridad: Prevención de path traversal attacks
