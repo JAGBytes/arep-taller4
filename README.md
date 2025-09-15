@@ -1,609 +1,266 @@
 Framework Web en Java para Servicios REST con Anotaciones, Reflexión y Multihilo
-Este proyecto implementa un framework web completo en Java que evoluciona desde un servidor web básico hacia una plataforma robusta para el desarrollo de aplicaciones web con servicios REST backend. El framework ahora incluye sistema de anotaciones, carga automática de componentes mediante reflexión, arquitectura MVC moderna, y procesamiento multihilo concurrente.
+Este proyecto implementa un framework web completo en Java que evoluciona desde un servidor web básico hacia una plataforma robusta para el desarrollo de aplicaciones web con servicios REST backend. El framework incluye sistema de anotaciones, carga automática de componentes mediante reflexión, arquitectura MVC moderna, y procesamiento multihilo concurrente avanzado.
 
-Nuevas Características Agregadas
-Sistema de Procesamiento Multihilo Mejorado
-ClientHandler dedicado: Clase especializada que implementa Runnable para manejar cada cliente en hilos separados
+🚀 Características Principales
+Sistema de Anotaciones Personalizado: @RestController, @GetMapping, @RequestParam
 
-Timeout configurable: Timeout de 30 segundos para evitar conexiones colgadas
+Carga Automática de Componentes: Descubrimiento automático de controladores mediante reflexión
 
-Manejo robusto de errores: Captura y registro detallado de excepciones
+Arquitectura Multihilo Avanzada: Pool de hasta 50 hilos con ClientHandler dedicado
 
-Logging mejorado: Sistema de logging con información de hilos, clientes y tiempos de procesamiento
+Protocolo HTTP Completo: Soporte para GET, POST, HEAD, OPTIONS
 
-Soporte para métodos HTTP adicionales: Implementación completa de HEAD y OPTIONS
+Sistema de Logging Mejorado: Información detallada de hilos y clientes
 
-Mejoras en el Manejo de Clientes
-Identificación única de clientes: Generación de IDs únicos para tracking
+Manejo Robust de Errores: Timeouts de 30 segundos y captura de excepciones
 
-Estadísticas de procesamiento: Medición de tiempos de procesamiento por cliente
+Despliegue en AWS EC2: Instancia cloud con Docker preconfigurado
 
-Cierre seguro de conexiones: Manejo adecuado de recursos y cierre de sockets
+📦 Instalación y Ejecución
+Prerrequisitos
+Java 21 (Descargar)
 
-Respuestas de error específicas: Respuestas HTTP apropiadas para diferentes errores
+Apache Maven 3.8+ (Instalar)
 
-Optimizaciones de Rendimiento
-Pool de hilos configurable: Hasta 50 hilos concurrentes (configurable)
+Docker (opcional, para despliegue en contenedores)
 
-Manejo eficiente de memoria: Uso de buffers optimizados para lectura/escritura
-
-Procesamiento no bloqueante: Timeouts en sockets para evitar bloqueos
-
-Gestión de recursos: Cierre automático de streams y sockets
-
-Pruebas y Validación
-Suite Completa de Pruebas Implementadas
-El framework incluye una suite completa de pruebas que validan todas las funcionalidades:
-
-Pruebas Unitarias (HttpServerTest)
-java
-@Test
-void testLoadInitialData() {
-    var users = HttpServer.getUsers();
-    assertEquals(3, users.size());
-    assertTrue(users.containsValue("Andres"));
-    assertTrue(users.containsValue("Maria"));
-    assertTrue(users.containsValue("Carlos"));
-}
-
-@Test
-void testAddUser() {
-    int initial = HttpServer.getUsers().size();
-    HttpServer.addUser("TestUser");
-    assertEquals(initial + 1, HttpServer.getUsers().size());
-}
-
-@Test
-void testGetHelloWithParams() throws Exception {
-    String resp = doGet("/api/hello?name=Juan");
-    assertTrue(resp.contains("Hello Juan!"));
-}
-
-@Test
-void testStaticFileIndex() throws Exception {
-    String resp = doGet("/");
-    assertTrue(resp.contains("Test Index"));
-}
-
-@Test
-void testPathTraversalBlocked() throws Exception {
-    String resp = doGet("/../../../etc/passwd");
-    assertTrue(resp.contains("404") || resp.contains("Forbidden"));
-}
-Pruebas de Controladores con Anotaciones (SimpleControllerTest)
-java
-@Test
-@DisplayName("Test endpoint /greeting")
-void testHelloEndpoint() throws Exception {
-    URI testUri = new URI("/greeting");
-    byte[] response = HttpServer.handleGetRequest(testUri);
-    
-    String responseStr = new String(response);
-    assertTrue(responseStr.contains("200 OK"));
-    assertTrue(responseStr.contains("Hola Mundo!"));
-}
-
-@Test
-@DisplayName("Test endpoint /hello con parámetro")
-void testRequestParam() throws Exception {
-    URI testUri = new URI("/hello?name=Jorge");
-    byte[] response = HttpServer.handleGetRequest(testUri);
-    
-    String responseStr = new String(response);
-    assertTrue(responseStr.contains("200 OK"));
-    assertTrue(responseStr.contains("Hola, Jorge!"));
-}
-
-@Test
-@DisplayName("Test MathController - /add suma")
-void testMultipleControllers() throws Exception {
-    URI testUri = new URI("/add?a=3&b=7");
-    byte[] response = HttpServer.handleGetRequest(testUri);
-    
-    String responseStr = new String(response);
-    assertTrue(responseStr.contains("200 OK"));
-    assertTrue(responseStr.contains("Result: 10"));
-}
-
-@Test
-@DisplayName("Test MathController - números inválidos")
-void testMathInvalidNumbers() throws Exception {
-    URI testUri = new URI("/add?a=abc&b=5");
-    byte[] response = HttpServer.handleGetRequest(testUri);
-    
-    String responseStr = new String(response);
-    assertTrue(responseStr.contains("200 OK"));
-    assertTrue(responseStr.contains("Error: Invalid numbers"));
-}
-Pruebas de Concurrencia (MultithreadedServerTest)
-java
-@Test
-void testConcurrentGetRequests() throws InterruptedException {
-    int clientCount = 20;
-    ExecutorService executor = Executors.newFixedThreadPool(clientCount);
-    AtomicInteger successCount = new AtomicInteger(0);
-    CountDownLatch latch = new CountDownLatch(clientCount);
-
-    for (int i = 0; i < clientCount; i++) {
-        final int id = i;
-        executor.submit(() -> {
-            try {
-                String msg = "msg" + id;
-                String response = sendHttpRequest("GET", "/api/echo?msg=" + msg, "");
-                if (response.contains("{\"echo\":\"" + msg + "\"}")) {
-                    successCount.incrementAndGet();
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            } finally {
-                latch.countDown();
-            }
-        });
-    }
-
-    latch.await(5, TimeUnit.SECONDS);
-    executor.shutdownNow();
-
-    assertEquals(clientCount, successCount.get(), 
-        "Todos los clientes deberían recibir la respuesta correcta");
-}
-Cobertura de Pruebas
-Pruebas unitarias: Validación de componentes individuales
-
-Pruebas de integración: Verificación de la interacción entre componentes
-
-Pruebas de anotaciones: Validación del sistema de reflexión y anotaciones
-
-Pruebas de concurrencia: Evaluación del rendimiento bajo carga
-
-Pruebas de seguridad: Validación contra path traversal attacks
-
-Pruebas de errores: Manejo de casos de error y excepciones
-
-Ejecución de Pruebas
+Ejecución Local
 bash
-# Ejecutar todas las pruebas
+# 1. Clonar el repositorio
+git clone https://github.com/JAGBytes/arep-taller3.git
+cd arep-taller3
+
+# 2. Compilar el proyecto
+mvn clean compile
+
+# 3. Ejecutar el servidor
+java -cp target/classes edu.escuelaing.arem.ASE.app.App
+
+# 4. Acceder a la aplicación
+# http://localhost:35000
+Ejecución con Maven
+bash
+mvn exec:java -Dexec.mainClass="edu.escuelaing.arem.ASE.app.App"
+Ejecución con Docker (Local)
+bash
+# Construir la imagen
+docker build -t arep-taller4 .
+
+# Ejecutar con Docker Compose
+docker-compose up
+
+# O ejecutar directamente
+docker run -p 35000:35000 arep-taller4
+Ejecución desde Docker Hub
+bash
+# Descargar y ejecutar la imagen desde Docker Hub
+docker pull jorggg/arep-taller4
+docker run -p 35000:35000 jorggg/arep-taller4
+
+# O usar docker-compose con imagen remota
+# Editar docker-compose.yml y cambiar image: jorggg/arep-taller4
+docker-compose up
+Despliegue en AWS EC2
+bash
+# 1. Conectarse a la instancia EC2
+ssh -i "tu-key.pem" ubuntu@ec2-tu-instancia.amazonaws.com
+
+# 2. Instalar Docker (si no está instalado)
+sudo apt-get update
+sudo apt-get install docker.io docker-compose
+
+# 3. Descargar y ejecutar la imagen desde Docker Hub
+docker pull jorggg/arep-taller4
+docker run -d -p 35000:35000 --name arep-server jorggg/arep-taller4
+
+# 4. Verificar que el contenedor esté corriendo
+docker ps
+
+# 5. Probar la aplicación
+curl http://localhost:35000/greeting
+Ejecutar Pruebas
+bash
+# Todas las pruebas
 mvn test
 
-# Ejecutar pruebas específicas
+# Pruebas específicas
 mvn test -Dtest=HttpServerTest
 mvn test -Dtest=SimpleControllerTest
 mvn test -Dtest=MultithreadedServerTest
 
-# Ejecutar con logging detallado
+# Con logging debug
 mvn test -Dhttp.debug=true
-Resultados de las Pruebas
-Las pruebas demuestran que el framework:
-
-Es robusto: Maneja correctamente errores y entradas inválidas
-
-Escala bien: Soporta múltiples clientes concurrentes sin degradación del servicio
-
-Es seguro: Previene accesos no autorizados a archivos del sistema
-
-Mantiene la consistencia: Las estructuras de datos thread-safe garantizan la integridad de los datos bajo concurrencia
-
-Características Principales
-Framework de Servicios REST con Anotaciones
-Anotaciones personalizadas: Sistema completo de anotaciones tipo Spring
-
-Reflection-based routing: Enrutamiento automático basado en anotaciones
-
-Auto-discovery: Descubrimiento automático de controladores
-
-Parameter injection: Inyección automática de parámetros de consulta
-
-Funcionalidades Implementadas
-Sistema de Anotaciones
-
-@RestController para marcar controladores
-
-@GetMapping para definir rutas GET
-
-@RequestParam para extraer parámetros
-
-Controladores con Anotaciones
-
-GreetingController: Endpoints de saludo
-
-MathController: Operaciones matemáticas
-
-Carga Automática de Componentes
-
-Scanning automático del classpath
-
-Registro automático de endpoints
-
-Inicialización automática del framework
-
-Sistema Multihilo Avanzado
-
-ClientHandler: Manejo especializado de clientes en hilos separados
-
-Thread Pool: Pool configurable de hasta 50 hilos
-
-Timeout management: Timeouts de 30 segundos para conexiones
-
-Error handling: Manejo robusto de excepciones y errores
-
-Resource management: Gestión eficiente de recursos de red
-
-Testing Completo
-
-Tests de reflexión y anotaciones
-
-Tests de integración del sistema completo
-
-Tests de concurrencia y rendimiento
-
-Validación de carga automática
-
-📋 Requisitos Previos
-Java 21 Descargar Java
-
-Apache Maven 3.8+ Instalar Maven
-
-Git Instalar Git
-
-🛠️ Instalación y Ejecución
-Pasos para ejecutar el proyecto:
-Clonar el repositorio:
-
-bash
-git clone https://github.com/JAGBytes/arep-taller3.git
-cd arep-taller3
-Compilar el proyecto:
-
-bash
-mvn clean compile
-Ejecutar el servidor:
-
-bash
-java -cp target/classes edu.escuelaing.arem.ASE.app.App
-Acceder a la aplicación:
-
-text
-http://localhost:35000
-Alternativas de ejecución:
-Usando Maven Exec Plugin:
-
-bash
-mvn exec:java -Dexec.mainClass="edu.escuelaing.arem.ASE.app.App"
-Ejecutar tests:
-
-bash
-mvn test
-Ejecutar con logging debug:
-
-bash
-java -Dhttp.debug=true -cp target/classes edu.escuelaing.arem.ASE.app.App
-Arquitectura del Framework
-Componentes Principales:
-Procesamiento Multihilo Mejorado
-El framework implementa un sistema de procesamiento multihilo mejorado con la clase ClientHandler que maneja cada cliente de forma concurrente:
+🏗️ Arquitectura Multihilo Avanzada
+ClientHandler Dedicado
+Cada cliente es manejado por una instancia especializada de ClientHandler que implementa Runnable:
 
 java
-// Pool de hilos para manejo concurrente (hasta 50 hilos)
+// Pool de 50 hilos para manejo concurrente
 private static ExecutorService threadPool = Executors.newFixedThreadPool(50);
 
-// Cada cliente se maneja en un hilo separado con ClientHandler
+// Cada cliente en hilo separado
 threadPool.submit(new ClientHandler(clientSocket));
-Características del sistema multihilo mejorado:
+Características del Sistema Multihilo
+🔄 Pool Configurable: Hasta 50 hilos concurrentes
 
-ClientHandler dedicado: Clase especializada que implementa Runnable
+⏱️ Timeout Management: 30 segundos por conexión
 
-Timeout management: 30 segundos de timeout para evitar conexiones colgadas
+📊 Logging Detallado: IDs únicos de cliente y métricas de tiempo
 
-Logging detallado: Información de hilos, clientes y tiempos de procesamiento
+🛡️ Manejo Robust de Errores: Captura completa de excepciones
 
-Manejo robusto de errores: Captura y registro detallado de excepciones
+🔧 Soporte HTTP Completo: GET, POST, HEAD, OPTIONS
 
-Soporte para métodos HTTP: GET, POST, HEAD, OPTIONS
-
-Sistema de Anotaciones
-java
-@RestController
-public class GreetingController {
-
-    @GetMapping("/greeting")
-    public static String greeting(@RequestParam String name) {
-        return "Hola Mundo!";
-    }
-
-    @GetMapping("/hello")
-    public static String sayHello(@RequestParam("name") String name) {
-        return "Hola, " + name + "!";
-    }
-}
-HttpServer con Reflexión
-Auto-discovery: Escaneo automático de controladores
-
-Reflection-based routing: Enrutamiento basado en anotaciones
-
-Parameter injection: Inyección automática de parámetros
-
-Error handling: Manejo robusto de errores de reflexión
-
-Métodos del Framework
-loadComponents(String[] args)
-
-Carga automática de controladores usando Reflections
-
-Registro automático de endpoints anotados
-
-Procesamiento de parámetros con @RequestParam
-
-get(String path, Function<Request, Response> handler)
-
-Define servicios REST GET con funciones lambda (legacy)
-
-Compatible con el sistema anterior
-
-post(String path, Function<Request, Response> handler)
-
-Define servicios REST POST (legacy)
-
-Procesamiento de cuerpos JSON
-
-staticfiles(String directory)
-
-Configura directorio de archivos estáticos
-
-Búsqueda en target/classes + directory
-
-Clases de Soporte
-Request: Acceso a parámetros, headers, body JSON
-
-Response: Constructor de respuestas HTTP con Builder Pattern
-
-Annotations: Sistema completo de anotaciones personalizadas
-
-Ejemplos de Uso
-Controladores con Anotaciones:
-GreetingController.java:
-java
-@RestController
-public class GreetingController {
-
-    @GetMapping("/greeting")
-    public static String greeting(@RequestParam String name) {
-        return "Hola Mundo!";
-    }
-
-    @GetMapping("/hello")
-    public static String sayHello(@RequestParam("name") String name) {
-        return "Hola, " + name + "!";
-    }
-}
-MathController.java:
-java
-@RestController
-public class MathController {
-
-    @GetMapping("/add")
-    public static String add(@RequestParam("a") String a, @RequestParam("b") String b) {
-        try {
-            int numA = Integer.parseInt(a);
-            int numB = Integer.parseInt(b);
-            return "Result: " + (numA + numB);
-        } catch (NumberFormatException e) {
-            return "Error: Invalid numbers";
-        }
-    }
-}
-Aplicación Principal (App.java):
-java
-public class App {
-    public static void main(String[] args) throws Exception {
-        // Configurar archivos estáticos
-        HttpServer.staticfiles("/");
-
-        // Los controladores se cargan automáticamente mediante reflexión
-        // No es necesario registrar manualmente los endpoints
-
-        // Servicios legacy (compatibilidad)
-        HttpServer.get("/pi", (req, res) -> {
-            return new Response.Builder()
-                .withContentType("text/plain")
-                .withBody(String.valueOf(Math.PI))
-                .build();
-        });
-
-        HttpServer.get("/e", (req, res) -> {
-            return new Response.Builder()
-                .withContentType("text/plain")
-                .withBody(String.valueOf(Math.E))
-                .build();
-        });
-
-        // Iniciar el servidor
-        HttpServer.startServer(args);
-    }
-}
 🌐 Endpoints Disponibles
-Servicios con Anotaciones:
-GET /greeting → Saludo básico
-
-GET /hello?name=X → Saludo personalizado
-
-GET /add?a=X&b=Y → Suma de dos números
-
-Servicios Legacy (compatibilidad):
-GET /pi → Constante matemática PI
-
-GET /e → Número de Euler
-
-POST /app/hello → Registro de usuarios
-
-Archivos Estáticos
-GET / → index.html
-
-GET /styles.css → Archivos CSS
-
-GET /scripts.js → Archivos JavaScript
-
-GET /servicio-web.jpg → Imagen del proyecto
-
-Ejemplos de Peticiones
-Endpoints con Anotaciones:
+Servicios con Anotaciones
 bash
 # Saludo básico
 curl "http://localhost:35000/greeting"
-# Respuesta: Hola Mundo!
 
-# Saludo personalizado
+# Saludo personalizado  
 curl "http://localhost:35000/hello?name=Juan"
-# Respuesta: Hola, Juan!
 
 # Operación matemática
 curl "http://localhost:35000/add?a=5&b=3"
-# Respuesta: Result: 8
-
-# Números inválidos
-curl "http://localhost:35000/add?a=abc&b=5"
-# Respuesta: Error: Invalid numbers
-Servicios Legacy:
+Servicios Legacy
 bash
-# Constante PI
+# Constantes matemáticas
 curl "http://localhost:35000/pi"
-# Respuesta: 3.141592653589793
-
-# Número de Euler
 curl "http://localhost:35000/e"
-# Respuesta: 2.718281828459045
 
-# Verificar usuario registrado
-curl "http://localhost:35000/app/hello?name=Juan"
-# Respuesta: {"message": "No estás registrado en el sistema."}
-
-# Registrar usuario
+# Registro de usuarios
 curl -X POST -H "Content-Type: application/json" \
      -d '{"name":"NuevoUsuario"}' \
      "http://localhost:35000/app/hello"
-# Respuesta: {"message": "Hola NuevoUsuario fuiste registrado exitosamente!"}
-
-# Probar controladores automáticos (cargados por reflexión)
-curl "http://localhost:35000/greeting?name=Pedro"
-# Respuesta: Hola Mundo!
-
-curl "http://localhost:35000/add?a=5&b=3"
-# Respuesta: 8
 Pruebas de Concurrencia
-El servidor multihilo puede manejar múltiples peticiones simultáneas. Puedes probar la concurrencia ejecutando múltiples peticiones en paralelo:
-
 bash
-# Ejecutar múltiples peticiones simultáneas
+# Múltiples peticiones simultáneas
 curl "http://localhost:35000/pi" &
-curl "http://localhost:35000/e" &
-curl "http://localhost:35000/app/hello?name=Usuario1" &
-curl "http://localhost:35000/greeting?name=Usuario2" &
+curl "http://localhost:35000/e" & 
+curl "http://localhost:35000/greeting?name=Usuario1" &
+curl "http://localhost:35000/add?a=2&b=3" &
 wait
-Características observables:
+🐳 Docker Hub Deployment
+Imagen Disponible Públicamente
+La imagen Docker está disponible en Docker Hub bajo:
 
-Procesamiento concurrente: Cada petición se maneja en un hilo separado
+Repositorio: jorggg/arep-taller4
 
-Logs de concurrencia: El servidor muestra "Cliente conectado, manejado en hilo separado"
+URL: https://hub.docker.com/r/jorggg/arep-taller4
 
-Respuestas independientes: Cada cliente recibe su respuesta sin interferencia
+Uso Directo desde Docker Hub
+bash
+# Ejecutar directamente desde Docker Hub
+docker run -p 35000:35000 jorggg/arep-taller4
 
-Gestión de recursos: Conexiones se cierran automáticamente después del procesamiento
+# Ejecutar en segundo plano
+docker run -d -p 35000:35000 --name my-app jorggg/arep-taller4
 
-Estructura del Proyecto
+# Ver logs del contenedor
+docker logs my-app
+
+# Detener el contenedor
+docker stop my-app
+Configuración para AWS EC2
+bash
+# En instancia EC2 con Docker instalado
+docker pull jorggg/arep-taller4
+docker run -d -p 35000:35000 --restart always --name arep-web jorggg/arep-taller4
+
+# Exponer el puerto en el security group de AWS
+# Permitir tráfico HTTP en el puerto 35000
+🧪 Suite de Pruebas
+HttpServerTest
+testLoadInitialData: Verifica carga inicial de 3 usuarios
+
+testAddUser: Valida registro de nuevos usuarios
+
+testGetHelloWithParams: Prueba parámetros en endpoints
+
+testStaticFileIndex: Verifica servidor de archivos estáticos
+
+testPathTraversalBlocked: Valida seguridad contra path traversal
+
+SimpleControllerTest
+testHelloEndpoint: Prueba endpoint básico /greeting
+
+testRequestParam: Valida parámetros con @RequestParam
+
+testMultipleControllers: Verifica múltiples controladores
+
+testMathInvalidNumbers: Prueba manejo de errores matemáticos
+
+MultithreadedServerTest
+testConcurrentGetRequests: Valida 20 clientes concurrentes
+
+🚀 Despliegue Rápido en AWS EC2
+Opción 1: Script Automático
+bash
+# En la instancia EC2
+curl -sSL https://raw.githubusercontent.com/JAGBytes/arep-taller3/main/deploy-ec2.sh | bash
+Opción 2: Comandos Manuales
+bash
+# 1. Conectar a EC2
+ssh -i "key.pem" ubuntu@ec2-tu-instancia.com
+
+# 2. Instalar Docker
+sudo apt update && sudo apt install -y docker.io
+
+# 3. Ejecutar contenedor
+sudo docker run -d -p 35000:35000 --name arep-app jorggg/arep-taller4
+
+# 4. Verificar
+curl http://localhost:35000/greeting
+Opción 3: Con Docker Compose en EC2
+bash
+# Crear docker-compose.yml en EC2
+cat > docker-compose.yml << EOF
+version: '3'
+services:
+  web:
+    image: jorggg/arep-taller4
+    container_name: web
+    ports:
+      - "35000:35000"
+    restart: unless-stopped
+EOF
+
+# Ejecutar
+docker-compose up -d
+📊 Estructura del Proyecto
 text
 arep-taller3/
-│
 ├── src/main/
 │   ├── java/edu/escuelaing/arem/ASE/app/
-│   │   ├── App.java                    # Aplicación principal
-│   │   ├── http/
-│   │   │   ├── HttpServer.java         # Servidor multihilo con reflexión
-│   │   │   ├── ClientHandler.java      # Manejo de clientes en hilos separados
-│   │   │   ├── Request.java            # Manejo de peticiones
-│   │   │   └── Response.java           # Constructor de respuestas
-│   │   ├── annotation/                 # Sistema de anotaciones
-│   │   │   ├── GetMapping.java         # Anotación para GET
-│   │   │   ├── RequestParam.java       # Anotación para parámetros
-│   │   │   └── RestController.java     # Anotación para controladores
-│   │   └── Controller/                 # Controladores con anotaciones
-│   │       ├── GreetingController.java # Controlador de saludos
-│   │       └── MathController.java     # Controlador matemático
-│   │
-│   └── resources/                      # Archivos estáticos
-│       ├── index.html
-│       ├── styles.css
-│       ├── scripts.js
-│       └── servicio-web.jpg
-│
-├── src/test/java/edu/escuelaing/arem/ASE/app/
-│   ├── HttpServerTest.java             # Tests del servidor HTTP
-│   ├── SimpleControllerTest.java       # Tests de anotaciones y reflexión
-│   └── MultithreadedServerTest.java    # Tests de concurrencia
-│
-├── target/classes/                     # Archivos compilados
-├── pom.xml                            # Configuración Maven con nuevas dependencias
-├── README.md                          # Documentación actualizada
-└── .gitignore
-Características Técnicas
-Sistema de Reflexión Implementado:
-Runtime annotation processing: Procesamiento de anotaciones en tiempo de ejecución
+│   │   ├── http/           # Servidor multihilo y handlers
+│   │   ├── annotation/     # Sistema de anotaciones
+│   │   └── controller/     # Controladores REST
+│   └── resources/          # Archivos estáticos
+├── src/test/               # Suite completa de pruebas
+├── target/                 # Archivos compilados
+├── Dockerfile             # Configuración Docker
+├── docker-compose.yml     # Orquestación de contenedores
+└── pom.xml               # Configuración Maven
+📈 Características Técnicas
+Java 21: Runtime optimizado
 
-Method invocation: Invocación dinámica de métodos
+Maven: Gestión de dependencias y build
 
-Parameter extraction: Extracción automática de parámetros
+Reflection: Carga automática de componentes
 
-Protocolo HTTP Implementado:
-Headers completos (Content-Type, Content-Length)
+Concurrencia: Pool de 50 hilos con ClientHandler
 
-Status codes apropiados (200, 400, 404, 500)
+HTTP Completo: GET, POST, HEAD, OPTIONS
 
-Métodos GET, POST, HEAD, OPTIONS
+Docker: Contenerización completa
 
-JSON parsing y generación
+Docker Hub: Imagen pública disponible
 
-Sistema Multihilo Avanzado:
-Pool de hilos configurable: Hasta 50 hilos concurrentes
+AWS EC2: Despliegue en cloud
 
-ClientHandler especializado: Manejo dedicado por cliente
+Testing: Suite completa con JUnit 5
 
-Timeout management: 30 segundos de timeout por conexión
-
-Logging detallado: Información completa de procesamiento
-
-Manejo robusto de errores: Captura y registro de excepciones
-
-Funcionalidades Destacadas
-1. Sistema de Anotaciones Personalizado
-Anotaciones tipo Spring Framework
-
-Procesamiento en tiempo de ejecución
-
-Inyección automática de parámetros
-
-2. Carga Automática de Componentes
-Descubrimiento automático de controladores
-
-Registro automático de endpoints
-
-Inicialización sin configuración manual
-
-3. Procesamiento Multihilo Avanzado
-Concurrencia: Manejo simultáneo de múltiples clientes (hasta 50)
-
-Escalabilidad: Pool de hilos configurable
-
-Aislamiento: Cada cliente se procesa independientemente
-
-Rendimiento: Mejor throughput y latencia reducida
-
-Gestión de recursos: Cierre automático de conexiones y manejo de timeouts
-
-4. Testing Completo
-Tests unitarios: Validación de componentes individuales
-
-Tests de integración: Verificación de interacción entre componentes
-
-Tests de anotaciones: Validación del sistema de reflexión
-
-Tests de concurrencia: Evaluación del rendimiento bajo carga
-
-Tests de seguridad: Prevención de path traversal attacks
+👨‍💻 Autor
+Jorge Andrés Gamboa Sierra
+Docker Hub: jorggg/arep-taller4
+GitHub: JAGBytes
