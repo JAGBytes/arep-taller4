@@ -61,6 +61,7 @@
                 </configuration>
             </plugin>
             
+            <!-- Ejecutar la app con mvn exec:java -->
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
@@ -69,7 +70,19 @@
                     <mainClass>edu.escuelaing.arem.ASE.app.App</mainClass>
                 </configuration>
             </plugin>
-            
+            <!-- Generar JAR ejecutable -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.3.0</version>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>edu.escuelaing.arem.ASE.app.App</mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
        
         </plugins>
     </build>

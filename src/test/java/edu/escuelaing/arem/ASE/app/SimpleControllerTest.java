@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class SimpleControllerTest {
 
-    /*    @BeforeAll
+    @BeforeAll
     static void setUpClass() {
     // Cargar datos iniciales
     HttpServer.loadInitialData();
@@ -23,12 +23,12 @@ class SimpleControllerTest {
     void setUp() {
     HttpServer.getUsers().clear();
     HttpServer.loadInitialData();
-    }*/
+    }
     // -------------------------
     // PRUEBAS ESENCIALES CORREGIDAS
     // -------------------------
 
-    /*   @Test
+    @Test
     @DisplayName("Test endpoint /greeting")
     void testHelloEndpoint() throws Exception {
     URI testUri = new URI("/greeting");
@@ -110,6 +110,6 @@ class SimpleControllerTest {
     byte[] resp3 = HttpServer.handleGetRequest(uri3);
     assertTrue(new String(resp3).contains("404"),
     "Endpoints no registrados deben retornar 404");
-    }*/
+    }
 
 }

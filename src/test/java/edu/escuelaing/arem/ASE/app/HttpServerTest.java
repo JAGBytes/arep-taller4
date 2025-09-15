@@ -1,221 +1,186 @@
 package edu.escuelaing.arem.ASE.app;
 
 import edu.escuelaing.arem.ASE.app.http.HttpServer;
+import edu.escuelaing.arem.ASE.app.http.Request;
+import edu.escuelaing.arem.ASE.app.http.Response;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.IOException;
+import java.io.StringReader;
+
 import org.junit.jupiter.api.*;
 
-import java.io.*;
-import java.net.*;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
-import java.util.*;
+import java.util.Comparator;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/**
- * Pruebas para HttpServer con servicios básicos y funcionalidades principales
- */
 class HttpServerTest {
 
-    /*    private static final int TEST_PORT = 35002;
-    private static Thread serverThread;
-    
     @BeforeAll
-    static void setUpClass() throws Exception {
-    HttpServer.port = TEST_PORT;
-    
-    // Crear archivos estáticos de prueba
-    createTestStaticFiles();
-    HttpServer.staticfiles("/test-static");
-    
-    // Registrar servicios de prueba
-    registerTestServices();
-    
-    // Levantar el servidor en un hilo aparte
-    serverThread = new Thread(() -> {
-    try {
-    HttpServer.getInstance().start();
-    } catch (IOException e) {
-    throw new RuntimeException(e);
+    static void setupAll() throws Exception {
+        // Archivos estáticos de prueba
+        createTestStaticFiles();
+        HttpServer.staticfiles("/test-static");
+
+        // Registrar servicios
+        registerTestServices();
     }
-    });
-    serverThread.setDaemon(true);
-    serverThread.start();
-    
-    // Esperar a que el servidor esté listo
-    Thread.sleep(500);
-    }
-    
+
     @BeforeEach
-    void setUp() {
-    HttpServer.getUsers().clear();
-    HttpServer.loadInitialData();
+    void setupEach() {
+        HttpServer.getUsers().clear();
+        HttpServer.loadInitialData();
     }
-    
+
     @AfterAll
-    static void tearDownClass() {
-    cleanupTestFiles();
+    static void tearDownAll() {
+        cleanupTestFiles();
     }
-    
-    // ================== CREACIÓN DE ARCHIVOS DE PRUEBA ==================
-    private static void createTestStaticFiles() throws IOException {
-    Path testDir = Paths.get("target/classes/test-static");
-    Files.createDirectories(testDir);
-    
-    Files.writeString(testDir.resolve("index.html"),
-    "<html><body><h1>Test Index</h1></body></html>");
-    Files.writeString(testDir.resolve("style.css"),
-    "body { background-color: #f0f0f0; }");
-    Files.writeString(testDir.resolve("data.json"),
-    "{\"message\": \"Hello World\", \"status\": \"ok\"}");
-    
-    Path subDir = testDir.resolve("subdir");
-    Files.createDirectories(subDir);
-    Files.writeString(subDir.resolve("nested.txt"),
-    "This is a nested file");
+
+    // ================== Archivos de prueba ==================
+    private static void createTestStaticFiles() throws Exception {
+        Path testDir = Paths.get("target/classes/test-static");
+        Files.createDirectories(testDir);
+        Files.writeString(testDir.resolve("index.html"), "<html><body><h1>Test Index</h1></body></html>");
+        Files.writeString(testDir.resolve("style.css"), "body { background-color: #f0f0f0; }");
+        Files.writeString(testDir.resolve("data.json"), "{\"message\": \"Hello World\", \"status\": \"ok\"}");
+        Path subDir = testDir.resolve("subdir");
+        Files.createDirectories(subDir);
+        Files.writeString(subDir.resolve("nested.txt"), "This is a nested file");
     }
-    
+
     private static void cleanupTestFiles() {
-    try {
-    Path testDir = Paths.get("target/classes/test-static");
-    if (Files.exists(testDir)) {
-    Files.walk(testDir)
-    .sorted(Comparator.reverseOrder())
-    .map(Path::toFile)
-    .forEach(File::delete);
+        try {
+            Path testDir = Paths.get("target/classes/test-static");
+            if (Files.exists(testDir)) {
+                Files.walk(testDir)
+                        .sorted(Comparator.reverseOrder())
+                        .map(Path::toFile)
+                        .forEach(File::delete);
+            }
+        } catch (IOException ignored) {
+        }
     }
-    } catch (IOException ignored) {}
-    }
-    
-    // ================== REGISTRO DE SERVICIOS ==================
+
+    // ================== Servicios de prueba ==================
     private static void registerTestServices() {
-    HttpServer.get("/api/hello", (req, res) -> {
-    String name = req.getQueryParam("name");
-    String msg = name != null ? "Hello " + name + "!" : "Hello World!";
-    return res.ok("{\"message\":\"" + msg + "\"}");
-    });
-    
-    HttpServer.get("/api/users", (req, res) -> {
-    StringBuilder json = new StringBuilder("{\"users\":[");
-    var users = HttpServer.getUsers();
-    int i = 0;
-    for (var entry : users.entrySet()) {
-    json.append("{\"id\":\"").append(entry.getKey())
-    .append("\",\"name\":\"").append(entry.getValue()).append("\"}");
-    if (i < users.size() - 1) json.append(",");
-    i++;
+        HttpServer.get("/api/hello", (req, res) -> {
+            String name = req.getQueryParam("name");
+            String msg = name != null ? "Hello " + name + "!" : "Hello World!";
+            return new Response.Builder().withStatus(200).withBody("{\"message\":\"" + msg + "\"}").build();
+        });
+
+        HttpServer.get("/api/users", (req, res) -> {
+            var users = HttpServer.getUsers();
+            StringBuilder sb = new StringBuilder("{\"users\":[");
+            int i = 0;
+            for (var entry : users.entrySet()) {
+                sb.append("{\"id\":\"").append(entry.getKey()).append("\",\"name\":\"").append(entry.getValue()).append("\"}");
+                if (i++ < users.size() - 1) {
+                    sb.append(",");
+                }
+            }
+            sb.append("]}");
+            return new Response.Builder().withStatus(200).withBody(sb.toString()).build();
+        });
+
+        HttpServer.post("/api/users", (req, res) -> {
+            String name = req.getJsonValue("name");
+            if (name == null || name.isBlank()) {
+                return new Response.Builder().withStatus(400).withBody("{\"error\":\"Name is required\"}").build();
+            }
+            HttpServer.addUser(name);
+            return new Response.Builder().withStatus(201).withBody("{\"message\":\"User created\",\"name\":\"" + name + "\"}").build();
+        });
     }
-    json.append("]}");
-    return res.ok(json.toString());
-    });
-    
-    HttpServer.post("/api/users", (req, res) -> {
-    String name = req.getJsonValue("name");
-    if (name == null || name.isBlank()) {
-    return res.badRequest("{\"error\":\"Name is required\"}");
+
+    // ================== Helpers ==================
+    private String doGet(String path) throws Exception {
+        URI uri = new URI(path);
+        return new String(HttpServer.handleGetRequest(uri));
     }
-    HttpServer.addUser(name);
-    return res.created("{\"message\":\"User created\",\"name\":\"" + name + "\"}");
-    });
+
+    private String doPost(String path, String body) throws Exception {
+        // Construir una petición HTTP POST completa simulada
+        String rawRequest = "POST " + path + " HTTP/1.1\r\n"
+                + "Host: localhost\r\n"
+                + "Content-Type: application/json\r\n"
+                + "Content-Length: " + body.getBytes(StandardCharsets.UTF_8).length + "\r\n"
+                + "\r\n"
+                + body;
+
+        // BufferedReader para simular el flujo de entrada del socket
+        BufferedReader in = new BufferedReader(new StringReader(rawRequest));
+
+        // Crear URI del path
+        URI uri = new URI(path);
+
+        // Llamar al método handlePostRequest del servidor y devolver la respuesta
+        return new String(HttpServer.handlePostRequest(uri, in), StandardCharsets.UTF_8);
     }
-    
-    // ================== PRUEBAS ==================
+
+    // ================== Tests ==================
     @Test
     void testLoadInitialData() {
-    var users = HttpServer.getUsers();
-    assertEquals(3, users.size());
-    assertTrue(users.containsValue("Andres"));
-    assertTrue(users.containsValue("Maria"));
-    assertTrue(users.containsValue("Carlos"));
+        var users = HttpServer.getUsers();
+        assertEquals(3, users.size());
+        assertTrue(users.containsValue("Andres"));
+        assertTrue(users.containsValue("Maria"));
+        assertTrue(users.containsValue("Carlos"));
     }
-    
+
     @Test
     void testAddUser() {
-    int initialSize = HttpServer.getUsers().size();
-    HttpServer.addUser("TestUser");
-    assertEquals(initialSize + 1, HttpServer.getUsers().size());
+        int initial = HttpServer.getUsers().size();
+        HttpServer.addUser("TestUser");
+        assertEquals(initial + 1, HttpServer.getUsers().size());
     }
-    
+
     @Test
     void testGetHelloWithParams() throws Exception {
-    String response = sendHttpRequest("GET", "/api/hello?name=Juan", "");
-    assertTrue(response.contains("200 OK"));
-    assertTrue(response.contains("Hello Juan!"));
+        String resp = doGet("/api/hello?name=Juan");
+        assertTrue(resp.contains("Hello Juan!"));
     }
-    
+
     @Test
     void testGetUsers() throws Exception {
-    String response = sendHttpRequest("GET", "/api/users", "");
-    assertTrue(response.contains("200 OK"));
-    assertTrue(response.contains("Andres"));
-    assertTrue(response.contains("Maria"));
-    assertTrue(response.contains("Carlos"));
+        String resp = doGet("/api/users");
+        assertTrue(resp.contains("Andres"));
+        assertTrue(resp.contains("Maria"));
+        assertTrue(resp.contains("Carlos"));
     }
-    
+
     @Test
     void testPostCreateUser() throws Exception {
-    String response = sendHttpRequest("POST", "/api/users", "{\"name\":\"NewUser\"}");
-    assertTrue(response.contains("201"));
-    assertTrue(response.contains("User created"));
-    assertTrue(HttpServer.getUsers().containsValue("NewUser"));
+        String resp = doPost("/api/users", "{\"name\":\"NewUser\"}");
+        assertTrue(resp.contains("User created"));
+        assertTrue(HttpServer.getUsers().containsValue("NewUser"));
     }
-    
+
     @Test
     void testStaticFileIndex() throws Exception {
-    String response = sendHttpRequest("GET", "/", "");
-    assertTrue(response.contains("200 OK"));
-    assertTrue(response.contains("Test Index"));
+        String resp = doGet("/");
+        assertTrue(resp.contains("Test Index"));
     }
-    
+
     @Test
     void testStaticFileCss() throws Exception {
-    String response = sendHttpRequest("GET", "/style.css", "");
-    assertTrue(response.contains("200 OK"));
-    assertTrue(response.contains("background-color"));
+        String resp = doGet("/style.css");
+        assertTrue(resp.contains("background-color"));
     }
-    
+
     @Test
     void testPathTraversalBlocked() throws Exception {
-    String response = sendHttpRequest("GET", "/../../../etc/passwd", "");
-    assertTrue(response.contains("404"));
+        String resp = doGet("/../../../etc/passwd");
+        assertTrue(resp.contains("404") || resp.contains("Forbidden"));
     }
-    
+
     @Test
     void testPathTraversalWithEncoding() throws Exception {
-    String response = sendHttpRequest("GET", "/%2E%2E%2Fetc%2Fpasswd", "");
-    assertTrue(response.contains("404"));
+        String resp = doGet("/%2E%2E%2Fetc%2Fpasswd");
+        assertTrue(resp.contains("404") || resp.contains("Forbidden"));
     }
-    
-    @Test
-    void testDirectoryAccessBlocked() throws Exception {
-    String response = sendHttpRequest("GET", "/subdir/", "");
-    assertTrue(response.contains("404"));
-    }
-    
-    // ================== AUXILIAR ==================
-    private String sendHttpRequest(String method, String path, String body) throws IOException {
-    try (Socket socket = new Socket("localhost", TEST_PORT);
-    PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-    BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
-    
-    out.println(method + " " + path + " HTTP/1.1");
-    out.println("Host: localhost:" + TEST_PORT);
-    if (!body.isEmpty()) {
-    out.println("Content-Type: application/json");
-    out.println("Content-Length: " + body.length());
-    out.println();
-    out.print(body);
-    } else {
-    out.println();
-    }
-    out.flush();
-    
-    StringBuilder response = new StringBuilder();
-    String line;
-    while ((line = in.readLine()) != null) {
-    response.append(line).append("\n");
-    if (line.isEmpty()) break;
-    }
-    
-    return response.toString();
-    }
-    }*/
 }

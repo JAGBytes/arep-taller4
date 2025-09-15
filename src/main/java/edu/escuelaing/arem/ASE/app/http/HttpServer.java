@@ -32,7 +32,6 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.reflections.Reflections;
 
 /**
  * Servidor HTTP multihilo que maneja peticiones GET y POST de forma
@@ -110,7 +109,7 @@ public class HttpServer {
     /**
      * Cierra el servidor de forma ordenada.
      */
-    private static void shutdownServer() {
+    public static void shutdownServer() {
         serverRunning = false;
 
         if (serverSocket != null && !serverSocket.isClosed()) {
@@ -597,23 +596,4 @@ public class HttpServer {
             // Ignora clases no cargables
         }
     }
-    
-    private static boolean isPathSecure(String requestPath) {
-    try {
-        // Decodificar y normalizar
-        String decoded = java.net.URLDecoder.decode(requestPath, StandardCharsets.UTF_8.name());
-        Path normalized = Paths.get(decoded).normalize();
-
-        // Directorio base (resources)
-        Path base = Paths.get("src/main/resources").toAbsolutePath().normalize();
-
-        // Resuelve la ruta solicitada contra el base
-        Path resolved = base.resolve(normalized).normalize();
-
-        // Si el resolved no empieza con base, es intento de escape
-        return resolved.startsWith(base);
-    } catch (UnsupportedEncodingException e) {
-        return false;
-    }
-}
 }
