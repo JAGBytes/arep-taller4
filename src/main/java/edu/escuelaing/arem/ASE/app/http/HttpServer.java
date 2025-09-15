@@ -78,6 +78,18 @@ public class HttpServer {
      * @throws Exception Si ocurre cualquier otro error inesperado
      */
     public static void startServer(String[] args) throws IOException, Exception {
+        // Leer variable de entorno PORT
+        String portEnv = System.getenv("PORT");
+        if (portEnv != null) {
+            try {
+                port = Integer.parseInt(portEnv);
+                System.out.println("Puerto configurado desde variable de entorno PORT: " + port);
+            } catch (NumberFormatException e) {
+                System.err.println("Variable de entorno PORT inválida, usando puerto por defecto: " + port);
+            }
+        } else {
+            System.out.println("No se encontró variable de entorno PORT, usando puerto por defecto: " + port);
+        }
         loadInitialData();
         loadComponents(args);
 

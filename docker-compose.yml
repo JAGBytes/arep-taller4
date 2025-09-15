@@ -1,0 +1,10 @@
+version: '3'
+
+services:
+  web:
+    image: arep-taller4
+    container_name: web
+    ports:
+      - "35000:35000"
+    environment:
+      - PORT=35000
